@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Md.Jalal Uddin Module6:Part 2</title>
+        
+		<!-- Latest compiled and minified CSS -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
+
+        <!-- Optional theme -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap-theme.min.css">
+
+        <!--link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/novus/nvd3@v1.7.1/build/nv.d3.css" -->
+
+        <script type="text/javascript" src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+        <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/novus/nvd3@v1.7.1/build/nv.d3.min.js"></script>
+       
+        <style>
+            #datatable {
+                margin-top: 25px;
+            }
+            #searchForm {
+                margin-top:25px;
+            }
+            #presidentSearch {
+                width: 250px;
+            }
+            #heightChart {
+              padding: 0px;
+            }
+            #weightChart {
+                padding: 0px;
+            }
+            .xaxislabel {
+              font-size: 9px;
+            }
+            #nv3dChart {
+                margin-top: 25px;
+                margin-bottom: 25px;
+                height: 200px;
+            }
+        </style>
+    </head>
+
+    <body onload="loadPresidentsCsv()">
+        <div class="container">
+            <div class="row">
+                <div class="col-xs-offset-1 col-xs-3">
+                    <h1>DATA 608 Module 6:Part2:</h1>
+					<h2>Md. Jalal Uddin</h2>
+                    
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-xs-offset-1 col-xs-10">
+                    The following table lists the contents of the presidents.csv data file.
+                    Use the Search box to filter the table and find a president of interest.
+                </div>
+            </div>
+            <div class="row">
+                <form class="form-inline" id="searchForm">
+                        <div class="col-xs-offset-3 col-xs-5">
+                            <div class="form-group">
+                                <label for="presidentSearch">Search</label>
+                                <input type="search" class="form-control" id="presidentSearch" placeholder="Enter President">
+                            </div>
+                        </div>
+                </form>
+            </div>
+            <div class="row">
+                <div class="col-xs-offset-1 col-xs-10">
+                    <div id="datatable"></div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-xs-offset-1 col-xs-10">
+                    The following column chart is produced using the NVD3 discreteBarChart model.
+                </div>
+            </div>
+           <div class="row">
+                <div class="col-xs-offset-1 col-xs-10">
+                    <div id="nv3dChart"><svg></svg></div>
+                </div>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            var _rows = []
+            var _tableHeight = 0
+            var _names;
+            // Function: loadPresidentsCsv
+            function loadPresidentsCsv() {
+                d3.csv("presidents.csv",
+                    function (error, csv) {
+                        csv.forEach(function (row) {
+                            _rows.push(row);
+                        })
+                        var table = d3.select("#datatable").append("table");
+                        table.classed("table table-striped", true);
+                        thead = table.append("thead");
+                        tbody = table.append("tbody");
+                        thead.append("th").text("Name");
+                        thead.append("th").text("Height");
+                        thead.append("th").text("Visual").attr("class", "chartHdr");
+                        thead.append("th").text("Weight");
+                        thead.append("th").text("Visual").attr("class", "chartHdr");
+                        var tr = tbody.selectAll("tr")
+                              .data(_rows)
+                              .enter().append("tr");
+                        var td = tr.selectAll("td")
+                              .data(function (d) { return [d.Name, d.Height, d.Weight]; })
+                            .enter().append("td")
+                              .text(function (d) { return d; });
+                        _tableHeight = d3.select("#datatable")[0][0].clientHeight
+                        _names = _rows.map(function (t) { return t.Name; });
+                        addVerticalLineChart(getH, "td:nth-child(3)", "heightChart", _rows);
+                        addVerticalLineChart(getW, null, "weightChart", _rows);
+                        nv3dChartAttempt();
+
+                    });
+                d3.select("#presidentSearch").on("keyup", searchPresidents);
+
+            }
+            
+            function addVerticalLineChart(g, location, id, dataRows) {
+                // Now add the chart column
+                var width = 80,
+                      height = _tableHeight,
+                      mx = 10,
+                      radius = 2;
+                firstDataRow = d3.select("#datatable tbody tr");
+                cell = firstDataRow.insert("td", location);
+                cell.attr("id", id)
+                  .attr("width", width + "px")
+                  .attr("rowspan", dataRows.length);
+                var chart = d3.select("#" + id).append("svg")
+                    .attr("class", "chart")
+                    .attr("width", width)
+                    .attr("height", height);
+                // Determine min/max across both series
+                var maxH = 0;
+                var minH = Number.MAX_VALUE;
+                for (i = 0; i < dataRows.length; i++) {
+                    var h = parseInt(g(dataRows[i]))
+                    if (h > maxH) { maxH = h; }
+                    if (h < minH) { minH = h; }
+                }
+                // Axis Configuration
+                scales = setupAxis(chart, _names, minH, maxH, height, width, mx);
+                xscale = scales.xscale;
+                yscale = scales.yscale;
+                chart.selectAll(".xaxistick")
+                    .data(xscale.ticks(2))
+                  .enter().append("line")
+                    .attr("x1", function (d) { return xscale(d); })
+                    .attr("x2", function (d) { return xscale(d); })
+                    .attr("y1", 10)
+                    .attr("y2", height)
+                    .attr("stroke", "#eee")
+                    .attr("stroke-width", 1);
+                // Height Series
+                chart.selectAll(".line")
+                    .data(dataRows)
+                  .enter().append("line")
+                    .attr("x1", function (d) { return xscale(g(d)); })
+                    .attr("y1", function (d) { return yscale(d.Name) + yscale.rangeBand() / 2; })
+                    .attr("x2", function (d, i) { return dataRows[i + 1] ? xscale(g(dataRows[i + 1])) : xscale(g(d)); })
+                    .attr("y2", function (d, i) { return dataRows[i + 1] ? yscale(dataRows[i + 1].Name) + yscale.rangeBand() / 2 : yscale(d.Name) + yscale.rangeBand() / 2; })
+                    .attr("stroke", "#777")
+                    .attr("stroke-width", 1);
+                var pt = chart.selectAll(".pt")
+                    .data(dataRows)
+                  .enter().append("g")
+                    .attr("class", "pt")
+                    .attr("transform", function (d) { return "translate(" + xscale(g(d)) + "," + (yscale(d.Name) + yscale.rangeBand() / 2) + ")"; });
+                pt.append("circle")
+                    .attr("cx", 0)
+                    .attr("cy", 0)
+                    .attr("r", radius)
+                    .attr("opacity", .5)
+                    .attr("fill", "#ff0000");
+            }
+			
+            // Function:getH function to return the height value for a row of data
+            
+            function getH(row) {
+                return row.Height;
+            }
+            
+            // Function: getH function to return the weight value for a row of data.
+			
+            function getW(row) {
+                return row.Weight;
+            }
+            
+            // Function: setupAxis function to configure the axes for the veritical D3 table line charts
+           
+            function setupAxis(chart, domainIds, min, max, height, width, mx) {
+                var scales = new Object();
+                var xscale = d3.scale.linear()
+                                  .domain([min, max])
+                                  .range([mx, width - mx])
+                                  .nice();
+                var yscale = d3.scale.ordinal()
+                  .domain(domainIds)
+                  .rangeBands([0, height]);
+                chart.selectAll(".xaxislabel")
+                    .data(xscale.ticks(2))
+                  .enter().append("text")
+                    .attr("class", "xaxislabel")
+                    .attr("x", function (d) { return xscale(d); })
+                    .attr("y", 10)
+                    .attr("text-anchor", "middle")
+                    .text(String)
+                chart.selectAll(".xaxistick")
+                    .data(xscale.ticks(2))
+                  .enter().append("line")
+                    .attr("x1", function (d) { return xscale(d); })
+                    .attr("x2", function (d) { return xscale(d); })
+                    .attr("y1", 10)
+                    .attr("y2", height)
+                    .attr("stroke", "#eee")
+                    .attr("stroke-width", 1);
+                scales.xscale = xscale;
+                scales.yscale = yscale;
+                return scales;
+            }
+            
+            // Function: searchPresidents function to Performs the search/filtering from the input field.
+            
+            function searchPresidents() {
+                var inputField = d3.select("#presidentSearch");
+                var srchText = inputField.property("value");
+                var tableRows = d3.select("#datatable").select("tbody").selectAll("tr");
+                // Filter the table rows based on president's name
+                tableRows[0].forEach(function (row) {
+                    var td = row.cells[0]
+                    if (td.innerText.search(srchText) > -1) {
+                        // Found
+                        d3.select(row).classed("hidden", false)
+                    }
+                    else {
+                        d3.select(row).classed("hidden", true)
+                    }
+                });
+                // Need to hide the charts since they are a rowspaning single cell.
+                // Would be alot more work to update this dynamically.
+                var hideCharts = srchText.length > 0;
+                d3.selectAll(".chartHdr").classed("hidden", hideCharts);
+                d3.select("#heightChart").classed("hidden", hideCharts);
+                d3.select("#weightChart").classed("hidden", hideCharts);
+            }
+            var _myData;
+            var _nvd3Chart;
+            
+            // Function: nv3dChartAttempt function to create a new NV3D discreteBarChart
+            //           to visualize the president's heights
+            
+            function nv3dChartAttempt()
+            {
+                // NV3D
+                nv.addGraph(function () {
+                    _nvd3Chart = nv.models.discreteBarChart()
+                        .x(function (d) { return d.Name })    //Specify the data accessors.
+                        .y(function (d) { return d.Height })
+                        .staggerLabels(false)    //Too many bars and not enough room? Try staggering labels...
+                                                 // but this isn't compatible with rotated labels.
+                        .tooltips(false)         //Don't show tooltips
+                    ;
+                    _nvd3Chart.xAxis.rotateLabels(-35);
+                    _myData = new Array();
+                    _myData[0] = new Object()
+                    _myData[0].key = "presidents";
+                    _myData[0].values = _rows;
+                    d3.select('#nv3dChart svg')
+                        .datum(_myData)
+                        .call(_nvd3Chart);
+                    d3.select('#nv3dChart svg')
+                          .append("text")
+                          .attr("x", 100 + _nvd3Chart.container.clientWidth / 3)//)
+                          .attr("y", 10)
+                          .attr("text-anchor", "middle").attr("id", "nv3dChartTitle")
+                          .text("President's Heights");
+                    nv.utils.windowResize(_nvd3Chart.update);
+                    nv.utils.windowResize(Nvd3ChartTitleUpdate);
+                    return _nvd3Chart;
+                });
+            }
+            
+            // Function: Nvd3ChartTitleUpdate function to relocate the chart title so it stays centered above the chart
+            
+            function Nvd3ChartTitleUpdate() {
+                d3.select('#nv3dChartTitle')
+                    .attr("x", 100 + _nvd3Chart.container.clientWidth / 3)
+                    .attr("y", 10)
+            }
+        </script>
+    </body>
+</html>
