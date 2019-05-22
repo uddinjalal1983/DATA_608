@@ -1,0 +1,28 @@
+---
+title: "Untitled"
+author: "Md Jalal Uddin"
+date: "May 15, 2019"
+output: html_document
+---
+
+```{r}
+if (!require('leaflet')) install.packages('leaflet')
+if (!require('htmlwidgets')) install.packages('htmlwidgets')
+
+all <- readRDS("C:/Users/sql_ent_svc/Desktop/Data_608/GVFinalData.rds")
+
+
+m <- leaflet(all) %>%
+    addTiles('http://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', 
+             attribution='Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>') %>%  # Add default OpenStreetMap map tiles
+    addCircles(lng=~lon, lat=~lat, 
+               weight=all$Killed,
+               popup=all$Content,
+               stroke = TRUE, 
+               fillOpacity = 0.8) 
+m
+
+saveWidget(m, file="C:/Users/sql_ent_svc/Desktop/Data_608/Final_Project/GVfile.html")
+
+```
+

@@ -1,0 +1,187 @@
+---
+title: "DATA_608_Final Paper: US Gunviolence from 2014-2019"
+author: "Md Jalal Uddin"
+date: "May 15, 2019"
+output: html_document
+---
+
+```{r}
+
+library(xts)
+library(shiny)
+library(dplyr)
+library(leaflet)
+library(RColorBrewer)
+library(devtools)
+
+```
+
+
+```{r}
+
+GV_all_Data <- readRDS("C:/Users/sql_ent_svc/Desktop/Data_608/GVFinalData.rds")
+
+GV_all_Data$Date <- as.Date(GV_all_Data$Date)
+
+GV_all_Data$Address <- as.character(GV_all_Data$Address)
+
+head(GV_all_Data)
+
+```
+
+
+
+
+```{r}
+#library(shinyapps)
+devtools::install_github('rstudio/shinyapps')
+#require(devtools)
+#install_version("xts", version = "0.9-7", repos = "http://cran.us.r-project.org")
+
+```
+
+
+
+
+```{r}
+
+ui <- navbarPage("US Gun Violence: 2014-2019", id="nav",
+        tabPanel("Gun Violence Location on Map",
+            div(class="outer",
+                tags$head(
+                   includeCSS("https://raw.githubusercontent.com/uddinjalal1983/DATA_608/master/DATA_608_Final_Project/model.css")
+                     ),
+                leafletOutput("map", width="100%", height="100%"), 
+                absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
+                    draggable = TRUE, top = 60, left = "auto", right = 20, bottom = "auto",
+                          width = 330, height = "auto",
+                    h2("US Gun Violence"),
+                    h4("2014-2019"),
+                    radioButtons("incidentweight", "Incident Factor:",
+              c("Killed"="Killed", "Injured"="Injured"), selected = "Killed", inline=TRUE),
+            sliderInput(inputId = "date", label = "Animate", min = min(GV_all_Data$Date), 
+                                max = max(GV_all_Data$Date),
+                                value = max(GV_all_Data$Date),
+                                ticks = F,
+                                step=365/12, 
+                                animate = animationOptions(interval = 1000,
+                                          playButton = icon('play', "fa-3x"),
+                                          pauseButton = icon('pause', "fa-3x"))),
+                    textOutput("counts")
+                    ),
+                tags$div(id="cite",
+                         'Data source:  The Gun Violence Archive, 2014-2019.'
+                )
+            )
+        ),
+        tabPanel("Information about Data Source",
+            fluidRow(
+                column(12,
+                    h3("Source of the data"),
+                    div(HTML("<a href='https://www.gunviolencearchive.org/'>The Gun Violence Archive</a>")),
+                    p(" The source of the data to create a project on gun violence occurence throughout USA from 2014-2019 is the Gun Violence Archive, GVA (https://www.gunviolencearchive.org/reports). This website has all available data from  
+                      2014-2019. There are approximately 1800 observations in this aggregated dataset and seven variables including incident date, address of incident, number of people killed, number of people injured."),
+                    h3("Mass Shooting"),
+                    p("A mass shooting is an incident involving multiple victims of firearms-related violence such as gun violence. GVA has defined mass shooting based on the numeric value of 4 or more shot or killed, not including the shooter. GVA does not define the definition to remove any subcategory of shooting. Therefore, we did not exclude, set apart, or differentiate victims based upon the circumstances in which they were shot."),
+                    h3("Data Source Validation"),
+                    h4("Statement Based on Gun Violence Archive:"),
+                    p("GVA is a non profit organization formed in 2012 to provide online and public access to accurate information about gun-related violence in the United States. GVA collect and check for accuracy, comprehensive information about gun-related violence in the U.S. and then post and disseminate it online. The mission of GVA is to document incidents of gun violence, and gun crime nationally to provide independent, verified data to those who need to use it in their research, advocacy or writing. It is hoped that this information will inform and assist those engaged in discussions and activities concerning gun violence, including analysis of proposed regulations or legislation relating to gun safety usage."),
+                    h3("Research and Analysis"),
+                    p("Gun Violence has a devastating impact on the American people. Every day, 100 Americans are killed with gun and hundreds more are shot and injured.  It is clear from this project that total 2021 people got killed and total 7557 people got injured during 2014-2019 in USA. During this time two of the major mass shooting occured, one in Las Vegas Nevada got killed 59 and Injure d 441 on 10/01/2017 and another one in Orlando Florida got killed 50 people and Injured 53 on 06/12/2016. This result illustrate the magnitude of everyday gun violence in the country. Therefore, we all should work together to stop or minimize this damage to our nation."),
+                    
+                    h3("Source Code"),
+                    div(HTML("<a href='https://shiny.rstudio.com/articles/deployment-web.html
+'>https://shiny.rstudio.com/articles/shinyapps.html
+</a>")),
+                    h3("References"),
+                    div(HTML("<a href='https://github.com/uddinjalal1983/DATA_608/tree/master/DATA_608_Final_Project'>Github DATA 608 Final Project</a>"))
+                ))
+        )
+)
+
+
+```
+
+
+
+
+```{r}
+
+server <- function(input, output, session) {
+    history <- reactive({
+        GV_all_Data %>%
+            filter(Date <= input$date)
+    })
+    
+    color <- reactive({
+        if (input$incidentweight == "Killed") {
+            col = "OrRd"
+        } else {
+            col = "YlGn"
+        }
+    })
+    
+    sc <- reactiveVal(7000)
+    
+    observeEvent(input$incidentweight, {
+        if (input$incidentweight == "Killed") {
+            newValue <- 7000
+            sc(newValue)
+        } else {
+            newValue <- 4000
+            sc(newValue)
+        }
+    })
+    
+    name <- reactive({
+        if (input$incidentweight == "Killed") {
+            nam = "Killed"
+        } else {
+            nam = "Injured"
+        }
+    })
+    
+    output$counts <- renderText({
+        c <- sum(history()[[input$incidentweight]])
+        paste("Total ", name(), ": ", c)
+    })
+    
+    colorpal <- reactive({
+        colorNumeric(color(), all[[input$incidentweight]])
+    })
+    
+    output$map <- renderLeaflet({
+        leaflet() %>%
+            addTiles('http://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', 
+                     attribution='Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>') %>%  # Add default OpenStreetMap map tiles%>%
+            addLegend(position = "bottomright",
+                      pal = colorpal(), values = all[[input$incidentweight]],
+                      title = name()) %>%
+            setView(lng = -83.7129, lat = 37.0902, zoom = 4)
+    })
+    
+    observe({
+        pal <- colorpal()
+        proxy <- leafletProxy("map", data = history()) 
+        proxy %>%
+            clearShapes() %>%
+            addCircles(lng = ~lon,
+                       lat = ~lat,
+                       radius = ~history()[[input$incidentweight]] * sc(),
+                       weight = 1,
+                       popup= ~Content,
+                       color = "#777777",
+                       fillColor = ~pal(history()[[input$incidentweight]]),
+                       stroke = F, 
+                       fillOpacity = 0.7,
+                       data = history()
+            ) 
+    })
+}
+
+
+
+shinyApp(ui, server)
+
+```
+
